@@ -31,9 +31,9 @@ namespace zoom_sdk_demo
                     CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(onLogout);
                     AuthParam authParam = new AuthParam
                     {
-                        appKey = "",
-                        appSecret = ""
-                    };
+                        appKey = ConfigurationManager.AppSettings.Get("appKey"),
+                        appSecret = ConfigurationManager.AppSettings.Get("appSecret")
+                };
                     var sdkError = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
                     if (sdkError != SDKError.SDKERR_SUCCESS)
                     {
