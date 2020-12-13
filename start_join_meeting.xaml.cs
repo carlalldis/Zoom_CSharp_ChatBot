@@ -21,7 +21,7 @@ namespace zoom_sdk_demo
     /// </summary>
     public partial class start_join_meeting : Window
     {
-        IMeetingServiceDotNetWrap meeting;
+        private ChatbotController chatbotController;
         public start_join_meeting()
         {
             InitializeComponent();
@@ -30,11 +30,19 @@ namespace zoom_sdk_demo
         //ZOOM_SDK_DOTNET_WRAP.onMeetingStatusChanged
         public void onMeetingStatusChanged(MeetingStatus status, int iResult)
         {
-            switch(status)
+            switch (status)
             {
+                case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_INMEETING:
+                    {
+                        var meeting = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap();
+                        var chatController = meeting.GetMeetingChatController();
+                        chatbotController = new ChatbotController(chatController, textBox_username_api.Text);
+                    }
+                    break;
                 case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_ENDED:
                 case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_FAILED:
                     {
+                        chatbotController.Dispose();
                         Show();
                     }
                     break;
@@ -90,28 +98,6 @@ namespace zoom_sdk_demo
             ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().
                 GetMeetingParticipantsController().Add_CB_onUserNameChanged(onUserNameChanged);
         }
-        private void button_start_api_Click(object sender, RoutedEventArgs e)
-        {
-            RegisterCallBack();
-            ZOOM_SDK_DOTNET_WRAP.StartParam param = new ZOOM_SDK_DOTNET_WRAP.StartParam();
-            param.userType = ZOOM_SDK_DOTNET_WRAP.SDKUserType.SDK_UT_WITHOUT_LOGIN;
-            ZOOM_SDK_DOTNET_WRAP.StartParam4WithoutLogin start_withoutlogin_param = new ZOOM_SDK_DOTNET_WRAP.StartParam4WithoutLogin();
-            start_withoutlogin_param.meetingNumber = UInt64.Parse(textBox_meetingnumber_api.Text);
-            start_withoutlogin_param.userID = textBox_userid_api.Text;
-            start_withoutlogin_param.userZAK = textBox_AccessToken.Text;
-            start_withoutlogin_param.userName = textBox_username_api.Text;
-            start_withoutlogin_param.zoomuserType = ZOOM_SDK_DOTNET_WRAP.ZoomUserType.ZoomUserType_APIUSER;
-            param.withoutloginStart = start_withoutlogin_param;
-
-            ZOOM_SDK_DOTNET_WRAP.SDKError err = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Start(param);
-            if (ZOOM_SDK_DOTNET_WRAP.SDKError.SDKERR_SUCCESS == err)
-            {
-                Hide();
-            }
-            else//error handle
-            { }
-
-        }
 
         private void button_join_api_Click(object sender, RoutedEventArgs e)
         {
@@ -126,21 +112,10 @@ namespace zoom_sdk_demo
             ZOOM_SDK_DOTNET_WRAP.SDKError err = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Join(param);
             if (ZOOM_SDK_DOTNET_WRAP.SDKError.SDKERR_SUCCESS == err)
             {
-                meeting = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap();
-                meeting.Add_CB_onMeetingStatusChanged(onMeetingStatusChangedEvent);
                 Hide();
             }
             else//error handle
             { }
-        }
-
-        private void onMeetingStatusChangedEvent(MeetingStatus status, int iResult)
-        {
-            if (status == MeetingStatus.MEETING_STATUS_INMEETING)
-            {
-                var chatController = meeting.GetMeetingChatController();
-                chatController.SendChatTo(0, "test");
-            }
         }
 
         void Wnd_Closing(object sender, CancelEventArgs e)
