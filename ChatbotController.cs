@@ -4,25 +4,34 @@ using ZOOM_SDK_DOTNET_WRAP;
 
 namespace zoom_sdk_demo
 {
+    /// <summary>
+    /// Controls the state of initiative rounds and user communication
+    /// </summary>
     class ChatbotController : IDisposable
     {
         private bool disposedValue;
-        private IMeetingChatControllerDotNetWrap _chatController;
-        private List<Message> _messages;
-        private int _round;
-        private string _userName;
-        private bool _inProgress;
+        private IMeetingChatControllerDotNetWrap _chatController; // The chat controller for the zoom meeting
+        private List<Message> _messages; // A list of initiative values for the round (clears every round)
+        private int _round; // The number of this round
+        private string _userName; // The username of the bot (to mitigate self-replies)
+        private bool _inProgress; // Determines if there is a round in progress
 
         public ChatbotController(IMeetingChatControllerDotNetWrap chatController, string userName)
         {
             _messages = new List<Message>();
-            _round = 1;
-            _inProgress = false;
+            _round = 1; // Start at round 1
+            _inProgress = false; // Start with a round not in progress
             _userName = userName;
             _chatController = chatController;
-            _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotifcation);
+            _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotifcation); // Add event handler for messages
+            SendMessageEveryone("Initiative Bot is now initialised!");
+            SendMessageEveryone("Type \"new\" or \"done\" to control initiative rounds.");
         }
 
+        /// <summary>
+        /// When a chat message is recevied, follow logic to determine course of action (new round, add value to round, or end round)
+        /// </summary>
+        /// <param name="chatMsg"></param>
         private void onChatMsgNotifcation(IChatMsgInfoDotNetWrap chatMsg)
         {
             var timestamp = chatMsg.GetTimeStamp();
@@ -45,6 +54,9 @@ namespace zoom_sdk_demo
             }
         }
 
+        /// <summary>
+        /// Start a new round, unless there is one in progress
+        /// </summary>
         private void NewInitiative()
         {
             if (_inProgress)
@@ -58,6 +70,9 @@ namespace zoom_sdk_demo
             }
         }
 
+        /// <summary>
+        /// Complete the round, unless there is not one in progress
+        /// </summary>
         private void CompleteInitiative()
         {
             if (_inProgress)
@@ -78,6 +93,12 @@ namespace zoom_sdk_demo
             }
         }
 
+        /// <summary>
+        /// Add a new value to the round in progress
+        /// </summary>
+        /// <param name="timestamp"></param>
+        /// <param name="sender"></param>
+        /// <param name="content"></param>
         private void AddMessage(DateTime? timestamp, string sender, string content)
         {
             if (_inProgress)
@@ -100,6 +121,10 @@ namespace zoom_sdk_demo
             }
         }
 
+        /// <summary>
+        /// Send a message to everyone in the meeting
+        /// </summary>
+        /// <param name="message"></param>
         private void SendMessageEveryone(string message)
         {
             _chatController.SendChatTo(0, message);
