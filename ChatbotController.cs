@@ -24,8 +24,6 @@ namespace zoom_sdk_demo
             _userName = userName;
             _chatController = chatController;
             _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotifcation); // Add event handler for messages
-            SendMessageEveryone("Initiative Bot is now initialised!");
-            SendMessageEveryone("Type \"new\" or \"done\" to control initiative rounds.");
         }
 
         /// <summary>
@@ -78,11 +76,15 @@ namespace zoom_sdk_demo
             if (_inProgress)
             {
                 _messages.Sort();
-                SendMessageEveryone("Initiative round " + _round + " results:");
+                var resultMessageList = new List<String>();
+                resultMessageList.Add("Initiative round " + _round + " results:");
+                resultMessageList.Add("");
                 foreach (var message in _messages)
                 {
-                    SendMessageEveryone(message.Sender + ": " + message.Roll);
+                    resultMessageList.Add(message.Sender + ": " + message.Roll);
                 }
+                var resultMessage = string.Join("\n", resultMessageList);
+                SendMessageEveryone(resultMessage);
                 _messages.Clear();
                 _round++;
                 _inProgress = false;
