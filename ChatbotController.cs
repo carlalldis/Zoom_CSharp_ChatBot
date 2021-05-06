@@ -26,14 +26,21 @@ namespace zoom_sdk_demo
             _inProgress = false; // Start with a round not in progress
             _userName = userName;
             _chatController = chatController;
-            _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotifcation); // Add event handler for messages
+            _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotification); // Add event handler for messages
+            System.Threading.Thread.Sleep(5000);
+            SendMessageEveryone("I am now initialized. The following commands are available:" +
+                "\r\n\t'new'    : Start a new round" +
+                "\r\n\t'done'   : Finish the current round" +
+                "\r\n\t'undo'   : Go back to the previous round" +
+                "\r\n\t'restart': Remove the current rolls" +
+                "\r\n\t'tally'  : Show the totals of all rolls");
         }
 
         /// <summary>
         /// When a chat message is recevied, follow logic to determine course of action (new round, add value to round, or end round)
         /// </summary>
         /// <param name="chatMsg"></param>
-        private void onChatMsgNotifcation(IChatMsgInfoDotNetWrap chatMsg)
+        private void onChatMsgNotification(IChatMsgInfoDotNetWrap chatMsg)
         {
             var timestamp = chatMsg.GetTimeStamp();
             var sender = chatMsg.GetSenderDisplayName();
@@ -47,6 +54,12 @@ namespace zoom_sdk_demo
                         break;
                     case "done":
                         CompleteInitiative();
+                        break;
+                    case "undo":
+                        UndoCompleteInitiative();
+                        break;
+                    case "restart":
+                        RestartInitiative();
                         break;
                     case "tally":
                         TallyInitiative();
@@ -69,8 +82,42 @@ namespace zoom_sdk_demo
             }
             else
             {
+                _messages.Clear();
                 _inProgress = true;
                 SendMessageEveryone("Initiative round " + _round + " is now starting.");
+            }
+        }
+
+        /// <summary>
+        /// Restart the current round, if someone screwed up
+        /// </summary>
+        private void RestartInitiative()
+        {
+            if (_inProgress)
+            {
+                _inProgress = false;
+                _round--;
+            }
+            else
+            {
+                SendMessageEveryone("Initiative round is not in progress. You cannot 'restart'. Please type 'undo' to go back to the previous round.");
+            }
+        }
+
+        /// <summary>
+        /// Undo an initiative completion
+        /// </summary>
+        private void UndoCompleteInitiative()
+        {
+            if (_inProgress || _round == 1)
+            {
+                SendMessageEveryone("Initiative round already in progress. You cannot 'undo'. Please type 'restart' to restart the round.");
+            }
+            else
+            {
+                _inProgress = true;
+                _round--;
+                SendMessageEveryone("Initiative round " + _round + " is now in starting...again.");
             }
         }
 
@@ -82,7 +129,7 @@ namespace zoom_sdk_demo
             if (_inProgress)
             {
                 _messages.Sort();
-                var resultMessageList = new List<String>();
+                var resultMessageList = new List<string>();
                 resultMessageList.Add("Initiative round " + _round + " results:");
                 resultMessageList.Add("");
                 foreach (var message in _messages)
@@ -91,7 +138,6 @@ namespace zoom_sdk_demo
                 }
                 var resultMessage = string.Join("\n", resultMessageList);
                 SendMessageEveryone(resultMessage);
-                _messages.Clear();
                 _round++;
                 _inProgress = false;
             }
