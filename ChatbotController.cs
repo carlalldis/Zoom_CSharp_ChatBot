@@ -28,12 +28,19 @@ namespace zoom_sdk_demo
             _chatController = chatController;
             _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotification); // Add event handler for messages
             System.Threading.Thread.Sleep(5000);
-            SendMessageEveryone("I am now initialized. The following commands are available:" +
-                "\r\n\t'new'    : Start a new round" +
-                "\r\n\t'done'   : Finish the current round" +
-                "\r\n\t'undo'   : Go back to the previous round" +
-                "\r\n\t'restart': Remove the current rolls" +
-                "\r\n\t'tally'  : Show the totals of all rolls");
+            SendMessageEveryone("I am now initialized!");
+            Help();
+        }
+
+        private void Help()
+        {
+            SendMessageEveryone("The following commands are available:" +
+                "\r\n\t'new'\t\t: Start a new round" +
+                "\r\n\t'done'\t\t: Finish the current round" +
+                "\r\n\t'undo'\t\t: Go back to the previous round" +
+                "\r\n\t'restart'\t: Remove the current rolls" +
+                "\r\n\t'tally'\t\t: Show the totals of all rolls" +
+                "\r\n\t'help'\t\t: Show this message again");
         }
 
         /// <summary>
@@ -63,6 +70,9 @@ namespace zoom_sdk_demo
                         break;
                     case "tally":
                         TallyInitiative();
+                        break;
+                    case "help":
+                        Help();
                         break;
                     default:
                         AddMessage(timestamp, sender, content);
@@ -96,7 +106,7 @@ namespace zoom_sdk_demo
             if (_inProgress)
             {
                 _inProgress = false;
-                _round--;
+                NewInitiative();
             }
             else
             {
