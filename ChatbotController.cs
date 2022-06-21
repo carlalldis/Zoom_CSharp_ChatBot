@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using ZOOM_SDK_DOTNET_WRAP;
 using System.Linq;
+using System.Threading.Tasks;
+using ZOOM_SDK_DOTNET_WRAP;
 
-namespace zoom_sdk_demo
+namespace Zoom_CSharp_ChatBot
 {
     /// <summary>
     /// Controls the state of initiative rounds and user communication
     /// </summary>
-    class ChatbotController : IDisposable
+    class ChatbotController
     {
-        private bool disposedValue;
+        private bool _enablePending = false;
+        private bool _enabled = false;
         private IMeetingChatControllerDotNetWrap _chatController; // The chat controller for the zoom meeting
         private List<Message> _messages; // A list of initiative values for the round (clears every round)
         private Dictionary<string, List<int>> _tally; // A list of initiative values per person for the session
@@ -27,9 +29,26 @@ namespace zoom_sdk_demo
             _userName = userName;
             _chatController = chatController;
             _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotification); // Add event handler for messages
-            System.Threading.Thread.Sleep(5000);
-            SendMessageEveryone("I am now initialized!");
-            Help();
+
+        }
+
+        internal async Task Enable()
+        {
+            if (!_enablePending && !_enabled)
+            {
+                _enablePending = true;
+                await Task.Delay(5000);
+                SendMessageEveryone("I am now initialized!");
+                Help();
+                _enabled = true;
+                _enablePending = false;
+            }
+        }
+
+        internal void Disable()
+        {
+            if (_enabled)
+                _enabled = false;
         }
 
         private void Help()
@@ -49,6 +68,8 @@ namespace zoom_sdk_demo
         /// <param name="chatMsg"></param>
         private void onChatMsgNotification(IChatMsgInfoDotNetWrap chatMsg)
         {
+            if (!_enabled)
+                return;
             var timestamp = chatMsg.GetTimeStamp();
             var sender = chatMsg.GetSenderDisplayName();
             var content = chatMsg.GetContent();
@@ -159,7 +180,7 @@ namespace zoom_sdk_demo
 
         private void AddTally(string Sender, int Roll)
         {
-            if(_tally.ContainsKey(Sender))
+            if (_tally.ContainsKey(Sender))
             {
                 _tally[Sender].Add(Roll);
             }
@@ -186,7 +207,7 @@ namespace zoom_sdk_demo
                 tallyTotals.Add(newTally);
             }
             tallyTotals.Sort();
-            var resultTallyList = new List<String>();
+            var resultTallyList = new List<string>();
             resultTallyList.Add("Initiative tally:");
             resultTallyList.Add("");
             foreach (var tally in tallyTotals)
@@ -221,7 +242,7 @@ namespace zoom_sdk_demo
                 }
                 catch
                 {
-                    _chatController.SendChatTo(0, "'" + sender + "': your message '" + content + "' was invalid");
+                    _chatController.SendChatMsgTo("'" + sender + "': your message '" + content + "' was invalid", 0, ChatMessageType.SDKChatMessageType_To_All);
                 }
             }
         }
@@ -232,26 +253,19 @@ namespace zoom_sdk_demo
         /// <param name="message"></param>
         private void SendMessageEveryone(string message)
         {
-            _chatController.SendChatTo(0, message);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
+            var err = _chatController.SendChatMsgTo(message, 0, ChatMessageType.SDKChatMessageType_To_All);
+            switch (err)
             {
-                if (disposing)
-                {
-                    // TODO: dispose managed state (managed objects)
-                }
-                disposedValue = true;
+                case SDKError.SDKERR_SUCCESS:
+                    break;
+                case SDKError.SDKERR_TOO_FREQUENT_CALL:
+                    // Retry once
+                    Task.Delay(100).Wait();
+                    _chatController.SendChatMsgTo(message, 0, ChatMessageType.SDKChatMessageType_To_All);
+                    break;
+                default:
+                    throw new InvalidOperationException(err.ToString());
             }
-        }
-
-        public void Dispose()
-        {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
         }
     }
 

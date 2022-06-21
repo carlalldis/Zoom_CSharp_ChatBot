@@ -1,40 +1,38 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Configuration;
 using System.Windows;
 using ZOOM_SDK_DOTNET_WRAP;
 
-namespace zoom_sdk_demo
+namespace Zoom_CSharp_ChatBot
 {
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
     public partial class App : Application
     {
-        start_join_meeting start_meeting_wnd = new start_join_meeting();
+        readonly StartJoinMeeting start_meeting_wnd = new StartJoinMeeting();
 
-        private void Application_Startup(object sender, StartupEventArgs e)
+        private void ApplicationStartup(object sender, StartupEventArgs e)
         {
             //init sdk
             {
-                ZOOM_SDK_DOTNET_WRAP.InitParam param = new ZOOM_SDK_DOTNET_WRAP.InitParam();
-                param.web_domain = "https://zoom.us";
-                ZOOM_SDK_DOTNET_WRAP.SDKError err = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.Initialize(param);
-                if (ZOOM_SDK_DOTNET_WRAP.SDKError.SDKERR_SUCCESS == err)
+                InitParam param = new InitParam
+                {
+                    sdk_dll_path = ".\\zoom_sdk_dotnet_wrap\\zSDK.dll",
+                    web_domain = "https://zoom.us"
+                };
+                SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(param);
+                if (SDKError.SDKERR_SUCCESS == err)
                 {
                     //register callbacks
-                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(onAuthenticationReturn);
-                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLoginRet(onLoginRet);
-                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(onLogout);
+                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(OnAuthenticationReturn);
+                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLoginRet(OnLoginRet);
+                    CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(OnLogout);
                     AuthParam authParam = new AuthParam
                     {
                         appKey = ConfigurationManager.AppSettings.Get("appKey"),
                         appSecret = ConfigurationManager.AppSettings.Get("appSecret")
-                };
-                    var sdkError = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+                    };
+                    var sdkError = CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
                     if (sdkError != SDKError.SDKERR_SUCCESS)
                     {
                         MessageBox.Show("Failed to connect: " + sdkError.ToString());
@@ -48,14 +46,15 @@ namespace zoom_sdk_demo
                 }
             }
         }
-        private void Application_Exit(object sender, ExitEventArgs e)
+
+        private void ApplicationExit(object sender, ExitEventArgs e)
         {
             //clean up sdk
-            ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.CleanUp();
+            CZoomSDKeDotNetWrap.Instance.CleanUp();
         }
 
         //callback
-        public void onAuthenticationReturn(AuthResult ret)
+        public void OnAuthenticationReturn(AuthResult ret)
         {
             if (AuthResult.AUTHRET_SUCCESS == ret)
             {
@@ -67,13 +66,14 @@ namespace zoom_sdk_demo
                 Current.Shutdown();
             }
         }
-        public void onLoginRet(LOGINSTATUS ret, IAccountInfo pAccountInfo)
+        private void OnLoginRet(LOGINSTATUS ret, IAccountInfo pAccountInfo, LOGINFAILREASON reason)
         {
-            //MessageBox.Show("Login Status: " + ret.ToString());
+            if (ret == LOGINSTATUS.LOGIN_FAILED)
+                MessageBox.Show($"Login Status: {ret}\r\nAccount Info: {pAccountInfo}\r\nFail Reason: {reason}");
         }
-        public void onLogout()
+        public void OnLogout()
         {
-            //MessageBox.Show("Logged Out");
+            MessageBox.Show("Logged Out");
         }
     }
 }
