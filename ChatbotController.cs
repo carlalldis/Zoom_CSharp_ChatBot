@@ -9,7 +9,7 @@ namespace Zoom_CSharp_ChatBot
     /// <summary>
     /// Controls the state of initiative rounds and user communication
     /// </summary>
-    class ChatbotController
+    class ChatBotController
     {
         private bool _enablePending = false;
         private bool _enabled = false;
@@ -20,7 +20,7 @@ namespace Zoom_CSharp_ChatBot
         private string _userName; // The username of the bot (to mitigate self-replies)
         private bool _inProgress; // Determines if there is a round in progress
 
-        public ChatbotController(IMeetingChatControllerDotNetWrap chatController, string userName)
+        public ChatBotController(IMeetingChatControllerDotNetWrap chatController, string userName)
         {
             _messages = new List<Message>();
             _tally = new Dictionary<string, List<int>>();
@@ -29,10 +29,9 @@ namespace Zoom_CSharp_ChatBot
             _userName = userName;
             _chatController = chatController;
             _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotification); // Add event handler for messages
-
         }
 
-        internal async Task Enable()
+        internal async Task EnableAsync()
         {
             if (!_enablePending && !_enabled)
             {

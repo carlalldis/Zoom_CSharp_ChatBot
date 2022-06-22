@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel; // CancelEventArgs
+using System.Threading.Tasks;
 using System.Windows;
 using ZOOM_SDK_DOTNET_WRAP;
 
@@ -10,7 +11,8 @@ namespace Zoom_CSharp_ChatBot
     /// </summary>
     public partial class StartJoinMeeting : Window
     {
-        private ChatbotController chatbotController;
+        private ChatBotController? _chatBotController;
+        private AudioBotController? _audioBotController;
         public StartJoinMeeting()
         {
             InitializeComponent();
@@ -22,25 +24,44 @@ namespace Zoom_CSharp_ChatBot
             {
                 case MeetingStatus.MEETING_STATUS_INMEETING:
                     {
-                        if (chatbotController == null)
-                        {
-                            var meeting = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap();
-                            var chatController = meeting.GetMeetingChatController();
-                            chatbotController = new ChatbotController(chatController, textBox_username_api.Text);
-                        }
-                        await chatbotController.Enable();
+                        EnableAudioBotController();
+                        await EnableChatBotController();
                     }
                     break;
                 case MeetingStatus.MEETING_STATUS_ENDED:
                 case MeetingStatus.MEETING_STATUS_FAILED:
                     {
-                        chatbotController?.Disable();
+                        _chatBotController?.Disable();
                         Show();
                     }
                     break;
                 default:
                     break;
             }
+        }
+
+        private async Task EnableChatBotController()
+        {
+            if (_chatBotController == null)
+            {
+                var meeting = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap();
+                var chatController = meeting.GetMeetingChatController();
+                _chatBotController = new ChatBotController(chatController, textBox_username_api.Text);
+            }
+            await _chatBotController.EnableAsync();
+        }
+
+        private void EnableAudioBotController()
+        {
+            if (_audioBotController == null)
+            {
+                var meeting = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap();
+                var settings = CZoomSDKeDotNetWrap.Instance.GetSettingServiceWrap();
+                var audioController = meeting.GetMeetingAudioController();
+                var audioSettings = settings.GetAudioSettings();
+                _audioBotController = new AudioBotController(audioController, audioSettings);
+            }
+            _audioBotController.Enable();
         }
 
         public void OnUserJoin(Array lstUserID)
