@@ -29,8 +29,8 @@ namespace Zoom_CSharp_ChatBot
                     CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(OnLogout);
                     AuthParam authParam = new AuthParam
                     {
-                        appKey = ConfigurationManager.AppSettings.Get("appKey"),
-                        appSecret = ConfigurationManager.AppSettings.Get("appSecret")
+                        appKey = ConfigurationManager.AppSettings.Get("zoomKey"),
+                        appSecret = ConfigurationManager.AppSettings.Get("zoomSecret")
                     };
                     var sdkError = CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
                     if (sdkError != SDKError.SDKERR_SUCCESS)

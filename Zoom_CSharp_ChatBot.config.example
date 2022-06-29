@@ -1,7 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <configuration>
-  <appSettings>
-    <add key="appKey" value="" />
-    <add key="appSecret" value="" />
-  </appSettings>
+	<appSettings>
+		<add key="zoomKey" value="" />
+		<add key="zoomSecret" value="" />
+		<add key="azureSpeechRegion" value=""/>
+		<add key="azureSpeechKey" value=""/>
+		<add key="soundOutputDevice" value=""/>
+	</appSettings>
 </configuration>

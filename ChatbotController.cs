@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Zoom_CSharp_ChatBot.Music;
+using Zoom_CSharp_ChatBot.Speech;
 using ZOOM_SDK_DOTNET_WRAP;
 
 namespace Zoom_CSharp_ChatBot
@@ -13,12 +16,17 @@ namespace Zoom_CSharp_ChatBot
     {
         private bool _enablePending = false;
         private bool _enabled = false;
-        private IMeetingChatControllerDotNetWrap _chatController; // The chat controller for the zoom meeting
-        private List<Message> _messages; // A list of initiative values for the round (clears every round)
-        private Dictionary<string, List<int>> _tally; // A list of initiative values per person for the session
+        private readonly IMeetingChatControllerDotNetWrap _chatController; // The chat controller for the zoom meeting
+        private readonly List<Message> _messages; // A list of initiative values for the round (clears every round)
+        private readonly Dictionary<string, List<int>> _tally; // A list of initiative values per person for the session
         private int _round; // The number of this round
-        private string _userName; // The username of the bot (to mitigate self-replies)
+        private readonly string _userName; // The username of the bot (to mitigate self-replies)
         private bool _inProgress; // Determines if there is a round in progress
+        private VoiceController? _voiceController;
+        private MusicController? _musicController;
+        private List<string> _facts = new();
+
+        private const string STARTUP_MESSAGE = "DND Bot initialized!";
 
         public ChatBotController(IMeetingChatControllerDotNetWrap chatController, string userName)
         {
@@ -28,7 +36,7 @@ namespace Zoom_CSharp_ChatBot
             _inProgress = false; // Start with a round not in progress
             _userName = userName;
             _chatController = chatController;
-            _chatController.Add_CB_onChatMsgNotifcation(onChatMsgNotification); // Add event handler for messages
+            _chatController.Add_CB_onChatMsgNotifcation(OnChatMsgNotification); // Add event handler for messages
         }
 
         internal async Task EnableAsync()
@@ -36,11 +44,63 @@ namespace Zoom_CSharp_ChatBot
             if (!_enablePending && !_enabled)
             {
                 _enablePending = true;
+                _facts = (await File.ReadAllLinesAsync("DndFacts.txt")).ToList();
                 await Task.Delay(5000);
-                SendMessageEveryone("I am now initialized!");
+                try
+                {
+                    _voiceController = new VoiceController();
+                }
+                catch (Exception ex)
+                {
+                    SendTextMessage($"Voice failed to initialize: {ex.Message}");
+                }
+                try
+                {
+                    _musicController = new MusicController();
+                }
+                catch (Exception ex)
+                {
+                    SendTextMessage($"Music failed to initialize: {ex.Message}");
+                }
+                SendTextMessage(STARTUP_MESSAGE);
+                await SendVoiceMessageAsync(STARTUP_MESSAGE, SpeakingStyle.friendly);
+                await NewFactMessage();
                 Help();
                 _enabled = true;
                 _enablePending = false;
+            }
+        }
+
+        private async Task NewFactMessage()
+        {
+            if (_facts.Count == 0)
+            {
+                SendTextMessage("Sorry, no more facts");
+                await SendVoiceMessageAsync("Sorry, no more facts", SpeakingStyle.sad);
+            }
+            else
+            {
+                var random = new Random();
+                int index = random.Next(_facts.Count);
+                var chosenFact = _facts[index];
+                _facts.RemoveAt(index);
+                SendTextMessage($"DnD Fact: {chosenFact}");
+                await SendVoiceMessageAsync($"Here's a DND Fact: {chosenFact}", SpeakingStyle.cheerful);
+            }
+        }
+
+        private async Task SendVoiceMessageAsync(string message, SpeakingStyle style)
+        {
+            if (_voiceController is not null)
+            {
+                try
+                {
+                    await _voiceController.SpeakAsync(message, style);
+                }
+                catch (Exception ex)
+                {
+                    SendTextMessage($"Voice send failed: {ex.Message}");
+                }
             }
         }
 
@@ -52,12 +112,16 @@ namespace Zoom_CSharp_ChatBot
 
         private void Help()
         {
-            SendMessageEveryone("The following commands are available:" +
+            SendTextMessage("The following commands are available:" +
                 "\r\n\t'new'\t\t: Start a new round" +
                 "\r\n\t'done'\t\t: Finish the current round" +
                 "\r\n\t'undo'\t\t: Go back to the previous round" +
                 "\r\n\t'restart'\t: Remove the current rolls" +
                 "\r\n\t'tally'\t\t: Show the totals of all rolls" +
+                "\r\n\t'fact'\t\t: Read an interesting DnD fact" +
+                "\r\n\t'speak <style> <text>'\t\t: Make me say a sentence" +
+                "\r\n\t'play <file>'\t\t: Play some music" +
+                "\r\n\t'stop'\t\t: Stop the music" +
                 "\r\n\t'help'\t\t: Show this message again");
         }
 
@@ -65,40 +129,108 @@ namespace Zoom_CSharp_ChatBot
         /// When a chat message is recevied, follow logic to determine course of action (new round, add value to round, or end round)
         /// </summary>
         /// <param name="chatMsg"></param>
-        private void onChatMsgNotification(IChatMsgInfoDotNetWrap chatMsg)
+        private void OnChatMsgNotification(IChatMsgInfoDotNetWrap chatMsg)
         {
-            if (!_enabled)
-                return;
-            var timestamp = chatMsg.GetTimeStamp();
-            var sender = chatMsg.GetSenderDisplayName();
-            var content = chatMsg.GetContent();
-            if (sender != _userName)
+            try
             {
-                switch (content.ToLower())
+                if (!_enabled)
+                    return;
+                var timestamp = chatMsg.GetTimeStamp() ?? DateTime.Now;
+                var sender = chatMsg.GetSenderDisplayName();
+                var content = chatMsg.GetContent();
+                if (sender != _userName)
                 {
-                    case "new":
-                        NewInitiative();
-                        break;
-                    case "done":
-                        CompleteInitiative();
-                        break;
-                    case "undo":
-                        UndoCompleteInitiative();
-                        break;
-                    case "restart":
-                        RestartInitiative();
-                        break;
-                    case "tally":
-                        TallyInitiative();
-                        break;
-                    case "help":
-                        Help();
-                        break;
-                    default:
-                        AddMessage(timestamp, sender, content);
-                        break;
+                    switch (content.ToLower().Split(' ')[0])
+                    {
+                        case "new":
+                            NewInitiative();
+                            break;
+                        case "done":
+                            CompleteInitiative();
+                            break;
+                        case "undo":
+                            UndoCompleteInitiative();
+                            break;
+                        case "restart":
+                            RestartInitiative();
+                            break;
+                        case "tally":
+                            TallyInitiative();
+                            break;
+                        case "fact":
+                            _ = NewFactMessage();
+                            break;
+                        case "speak":
+                            ParseSpeakMessage(content);
+                            break;
+                        case "play":
+                            PlayMusic(content);
+                            break;
+                        case "stop":
+                            StopMusic();
+                            break;
+                      case "volume":
+                            SetMusicVolume(content);
+                            break;
+                        case "listmusic":
+                            ListMusic();
+                            break;
+                        case "help":
+                            Help();
+                            break;
+                        default:
+                            AddMessage(timestamp, sender, content);
+                            break;
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                SendTextMessage(ex.Message);
+            }
+        }
+
+        private void StopMusic()
+        {
+            _musicController?.Stop();
+        }
+
+        private void PlayMusic(string content)
+        {
+            var musicName = content[5..];
+            _musicController?.Play(musicName);
+        }
+
+        private void ListMusic()
+        {
+            var files = MusicController.GetAvailableFiles();
+            var filesString = string.Join(", ", files);
+            SendTextMessage($"Available music: {filesString}");
+        }
+
+        private void SetMusicVolume(string content)
+        {
+            var vol = int.Parse(content.Replace("volume ",""));
+            _musicController?.SetVolume(vol);
+        }
+
+        private void ParseSpeakMessage(string content)
+        {
+            var contentArray = content.Split(' ');
+            if (contentArray.Length < 3)
+            {
+                SendTextMessage("Please specify both <style> and <string>");
+                return;
+            }
+            var styleString = contentArray[1];
+            var styleParseSuccess = Enum.TryParse(styleString, out SpeakingStyle style);
+            if (!styleParseSuccess)
+            {
+                var availableStyles = string.Join(", ", Enum.GetNames<SpeakingStyle>());
+                SendTextMessage($"Speaking style '{styleString}' was invalid. Available styles are: {availableStyles}");
+            }
+            var speakString = string.Join(" ", contentArray.Skip(2));
+            _ = SendVoiceMessageAsync(speakString, style);
         }
 
         /// <summary>
@@ -108,13 +240,14 @@ namespace Zoom_CSharp_ChatBot
         {
             if (_inProgress)
             {
-                SendMessageEveryone("Initiative round already in progress.");
+                SendTextMessage("Initiative round already in progress.");
             }
             else
             {
                 _messages.Clear();
                 _inProgress = true;
-                SendMessageEveryone("Initiative round " + _round + " is now starting.");
+                SendTextMessage($"Initiative round {_round} is now starting.");
+                _ = SendVoiceMessageAsync($"Round {_round} started", SpeakingStyle.excited);
             }
         }
 
@@ -130,7 +263,7 @@ namespace Zoom_CSharp_ChatBot
             }
             else
             {
-                SendMessageEveryone("Initiative round is not in progress. You cannot 'restart'. Please type 'undo' to go back to the previous round.");
+                SendTextMessage("Initiative round is not in progress. You cannot 'restart'. Please type 'undo' to go back to the previous round.");
             }
         }
 
@@ -141,13 +274,13 @@ namespace Zoom_CSharp_ChatBot
         {
             if (_inProgress || _round == 1)
             {
-                SendMessageEveryone("Initiative round already in progress. You cannot 'undo'. Please type 'restart' to restart the round.");
+                SendTextMessage("Initiative round already in progress. You cannot 'undo'. Please type 'restart' to restart the round.");
             }
             else
             {
                 _inProgress = true;
                 _round--;
-                SendMessageEveryone("Initiative round " + _round + " is now in starting...again.");
+                SendTextMessage("Initiative round " + _round + " is now in progress again. Enter new rolls.");
             }
         }
 
@@ -159,21 +292,28 @@ namespace Zoom_CSharp_ChatBot
             if (_inProgress)
             {
                 _messages.Sort();
-                var resultMessageList = new List<string>();
-                resultMessageList.Add("Initiative round " + _round + " results:");
-                resultMessageList.Add("");
+                var resultMessageList = new List<string>
+                {
+                    "Initiative round " + _round + " results:",
+                    ""
+                };
                 foreach (var message in _messages)
                 {
                     resultMessageList.Add(message.Sender + ": " + message.Roll);
                 }
                 var resultMessage = string.Join("\n", resultMessageList);
-                SendMessageEveryone(resultMessage);
+                SendTextMessage(resultMessage);
+                if (_messages.Count != 0)
+                {
+                    var winner = _messages[0].Sender;
+                    _ = SendVoiceMessageAsync($"{winner} wins", SpeakingStyle.whispering);
+                }
                 _round++;
                 _inProgress = false;
             }
             else
             {
-                SendMessageEveryone("Initiative round is not currently in progress");
+                SendTextMessage("Initiative round is not currently in progress");
             }
         }
 
@@ -185,8 +325,10 @@ namespace Zoom_CSharp_ChatBot
             }
             else
             {
-                var newList = new List<int>();
-                newList.Add(Roll);
+                var newList = new List<int>
+                {
+                    Roll
+                };
                 _tally.Add(Sender, newList);
             }
         }
@@ -206,15 +348,17 @@ namespace Zoom_CSharp_ChatBot
                 tallyTotals.Add(newTally);
             }
             tallyTotals.Sort();
-            var resultTallyList = new List<string>();
-            resultTallyList.Add("Initiative tally:");
-            resultTallyList.Add("");
+            var resultTallyList = new List<string>
+            {
+                "Initiative tally:",
+                ""
+            };
             foreach (var tally in tallyTotals)
             {
-                resultTallyList.Add(tally.Sender + ": " + tally.Total + " (" + string.Join(", ", tally.Rolls) + ")");
+                resultTallyList.Add(tally.Sender + ": " + tally.Total + " (" + string.Join(", ", tally.Rolls!) + ")");
             }
             var resultTally = string.Join("\n", resultTallyList);
-            SendMessageEveryone(resultTally);
+            SendTextMessage(resultTally);
         }
 
         /// <summary>
@@ -223,7 +367,7 @@ namespace Zoom_CSharp_ChatBot
         /// <param name="timestamp"></param>
         /// <param name="sender"></param>
         /// <param name="content"></param>
-        private void AddMessage(DateTime? timestamp, string sender, string content)
+        private void AddMessage(DateTime timestamp, string sender, string content)
         {
             if (_inProgress)
             {
@@ -250,7 +394,7 @@ namespace Zoom_CSharp_ChatBot
         /// Send a message to everyone in the meeting
         /// </summary>
         /// <param name="message"></param>
-        private void SendMessageEveryone(string message)
+        private void SendTextMessage(string message)
         {
             var err = _chatController.SendChatMsgTo(message, 0, ChatMessageType.SDKChatMessageType_To_All);
             switch (err)
@@ -270,25 +414,18 @@ namespace Zoom_CSharp_ChatBot
 
     class Message : IComparable<Message>
     {
-        public DateTime? Timestamp { get; set; }
-        public string Sender { get; set; }
-        public int Roll { get; set; }
+        public DateTime? Timestamp { get; init; }
+        public string? Sender { get; init; }
+        public int Roll { get; init; }
 
-        public int CompareTo(Message other)
-        {
-            return other.Roll.CompareTo(Roll);
-        }
+        public int CompareTo(Message? other) => other?.Roll.CompareTo(Roll) ?? 0;
     }
 
     class Tally : IComparable<Tally>
     {
-        public string Sender { get; set; }
-        public int Total { get; set; }
-        public List<int> Rolls { get; set; }
-
-        public int CompareTo(Tally other)
-        {
-            return other.Total.CompareTo(Total);
-        }
+        public string? Sender { get; init; }
+        public int Total { get; init; }
+        public List<int>? Rolls { get; init; }
+        public int CompareTo(Tally? other) => other?.Total.CompareTo(Total) ?? 0;
     }
 }

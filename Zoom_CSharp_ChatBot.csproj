@@ -11,12 +11,51 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="Concentus.OggFile" Version="1.0.4" />
+	  <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.22.0" />
+	  <PackageReference Include="NAudio" Version="2.1.0" />
+	</ItemGroup>
+
+	<ItemGroup>
 	  <Reference Include="zoom_sdk_dotnet_wrap">
 	    <HintPath>zoom_sdk_dotnet_wrap\zoom_sdk_dotnet_wrap.dll</HintPath>
 	  </Reference>
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Update="App.config">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DndFacts.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Dum.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\End.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Evenstar.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Hobbits.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Loth.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Meetings.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Morgul.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Rohirrim.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Music\Twilight.mp3">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	  <None Update="zoom_sdk_dotnet_wrap\annoter.dll">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>

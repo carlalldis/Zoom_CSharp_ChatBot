@@ -27,6 +27,12 @@ namespace Zoom_CSharp_ChatBot
             if (!_enablePending && !_enabled)
             {
                 _enablePending = true;
+                _audioController.EnableMuteOnEntry(false, true);
+                _audioSettings.EnableAlwaysMuteMicWhenJoinVoip(false);
+                _audioSettings.EnableStereoAudio(true);
+                _audioSettings.EnableMicOriginalInput(true);
+                _audioSettings.EnableAutoAdjustMic(false);
+                _audioSettings.EnableAutoJoinAudio(true);
                 _audioController.JoinVoip();
                 _enabled = true;
                 _enablePending = false;
