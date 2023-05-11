@@ -91,7 +91,7 @@ namespace Zoom_CSharp_ChatBot
 
         private async Task SendVoiceMessageAsync(string message, SpeakingStyle style)
         {
-            if (_voiceController is not null)
+/*            if (_voiceController is not null)
             {
                 try
                 {
@@ -101,7 +101,7 @@ namespace Zoom_CSharp_ChatBot
                 {
                     SendTextMessage($"Voice send failed: {ex.Message}");
                 }
-            }
+            }*/
         }
 
         internal void Disable()
@@ -299,7 +299,10 @@ namespace Zoom_CSharp_ChatBot
                 };
                 foreach (var message in _messages)
                 {
-                    resultMessageList.Add(message.Sender + ": " + message.Roll);
+                    if (message.IsCrit)
+                        resultMessageList.Add(message.Sender + ": " + message.Roll + " (CRIT)");
+                    else
+                        resultMessageList.Add(message.Sender + ": " + message.Roll);
                 }
                 var resultMessage = string.Join("\n", resultMessageList);
                 SendTextMessage(resultMessage);
@@ -373,12 +376,16 @@ namespace Zoom_CSharp_ChatBot
             {
                 try
                 {
-                    var roll = int.Parse(content);
+                    bool isCrit = false;
+                    if (content.EndsWith('*'))
+                        isCrit = true;
+                    var roll = int.Parse(content.Replace("*",""));
                     var message = new Message
                     {
                         Timestamp = timestamp,
                         Sender = sender,
                         Roll = roll,
+                        IsCrit = isCrit,
                     };
                     _messages.Add(message);
                     AddTally(message.Sender, message.Roll);
@@ -417,6 +424,7 @@ namespace Zoom_CSharp_ChatBot
         public DateTime? Timestamp { get; init; }
         public string? Sender { get; init; }
         public int Roll { get; init; }
+        public bool IsCrit { get; internal set; }
 
         public int CompareTo(Message? other) => other?.Roll.CompareTo(Roll) ?? 0;
     }

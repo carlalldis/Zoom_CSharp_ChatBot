@@ -2,6 +2,7 @@
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Security;
@@ -14,8 +15,8 @@ namespace Zoom_CSharp_ChatBot.Speech
         private readonly string _voiceName;
         private readonly SpeakingStyle _defaultStyle;
         private readonly SpeechSynthesizer _speechSynthesizer;
-        private readonly MMDevice _device;
-        private WasapiOut _wasapiOut;
+        private readonly WaveOutCapabilities _device;
+        private readonly int _deviceNumber;
         private bool disposedValue;
 
         private const string SSML_TEMPLATE = @"
@@ -34,18 +35,25 @@ namespace Zoom_CSharp_ChatBot.Speech
             _defaultStyle = (SpeakingStyle)Enum.Parse(typeof(SpeakingStyle), defaultStyle);
             var key = ConfigurationManager.AppSettings.Get("azureSpeechKey") ?? throw new ArgumentNullException("azureSpeechKey", "Missing configuration");
             var region = ConfigurationManager.AppSettings.Get("azureSpeechRegion") ?? throw new ArgumentNullException("azureSpeechRegion", "Missing configuration");
+
             var deviceName = ConfigurationManager.AppSettings.Get("soundOutputDevice") ?? throw new ArgumentNullException("speechOutputDevice", "Missing configuration");
 
-            using var devices = new MMDeviceEnumerator();
+            var devices = new List<WaveOutCapabilities>();
+            var deviceCount = WaveOut.DeviceCount;
+            for (int i = 0; i < deviceCount; i++)
+            {
+                var capability = WaveOut.GetCapabilities(i);
+                devices.Add(capability);
+            }
             try
             {
-                var matchedDevices = devices.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active).Where(d => d.FriendlyName == deviceName);
+                var matchedDevices = devices.Where(d => d.ProductName == deviceName);
                 _device = matchedDevices.Single();
-                _wasapiOut = new WasapiOut(_device, AudioClientShareMode.Shared, false, 0);
+                _deviceNumber = devices.IndexOf(_device);
             }
             catch (InvalidOperationException ex)
             {
-                var availableDevices = devices.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active).Select(d => d.FriendlyName);
+                var availableDevices = devices.Select(d => d.ProductName);
                 var availableDevicesJoined = string.Join(", ", availableDevices);
                 throw new InvalidOperationException($"Failed to find device. Available devices are: {availableDevicesJoined}", ex);
             }
@@ -58,6 +66,7 @@ namespace Zoom_CSharp_ChatBot.Speech
         public Task SpeakAsync(string text) => SpeakAsync(text, _defaultStyle);
         public async Task SpeakAsync(string text, SpeakingStyle style)
         {
+
             try
             {
                 var ssml = SSML_TEMPLATE
@@ -69,9 +78,14 @@ namespace Zoom_CSharp_ChatBot.Speech
                     throw new InvalidOperationException($"Voice generation failed with reason: {result.Reason}");
                 using var pcmStream = new OggDecoderStream(result.AudioData);
                 using var mf = new RawSourceWaveStream(pcmStream, new WaveFormat(48000, 16, 1));
-                _wasapiOut.Init(mf);
-                _wasapiOut.Play();
-                while (_wasapiOut.PlaybackState == PlaybackState.Playing)
+                using var waveOut = new WaveOut()
+                {
+                    DeviceNumber = _deviceNumber,
+                    Volume = 1.0f,
+                };
+                waveOut.Init(mf);
+                waveOut.Play();
+                while (waveOut.PlaybackState == PlaybackState.Playing)
                 {
                     await Task.Delay(100);
                 }
@@ -79,11 +93,6 @@ namespace Zoom_CSharp_ChatBot.Speech
             catch
             {
                 throw;
-            }
-            finally
-            {
-                _wasapiOut.Dispose();
-                _wasapiOut = new WasapiOut(_device, AudioClientShareMode.Shared, false, 0);
             }
         }
 
@@ -94,7 +103,6 @@ namespace Zoom_CSharp_ChatBot.Speech
                 if (disposing)
                 {
                     _speechSynthesizer.Dispose();
-                    _wasapiOut.Dispose();
                 }
                 disposedValue = true;
             }

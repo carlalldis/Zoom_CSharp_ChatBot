@@ -16,9 +16,9 @@ namespace Zoom_CSharp_ChatBot.Music
         private CancellationTokenSource _cancelTaskSource = new();
         private Task? _currentTask;
         private WaveOut? _waveOut;
-        private int _volume = 25;
-        private float _volumeFloat => _volume / 100f;
-        private int _deviceNumber;
+        private int _volume = 10;
+        private float VolumeFloat => _volume / 100f;
+        private readonly int _deviceNumber;
 
         public MusicController()
         {
@@ -81,7 +81,7 @@ namespace Zoom_CSharp_ChatBot.Music
             _volume = vol;
             if (_waveOut != null)
             {
-                _waveOut.Volume = _volumeFloat;
+                _waveOut.Volume = VolumeFloat;
             } 
         }
 
@@ -90,7 +90,7 @@ namespace Zoom_CSharp_ChatBot.Music
             using var waveOut = new WaveOut()
             {
                 DeviceNumber = _deviceNumber,
-                Volume = _volumeFloat,
+                Volume = VolumeFloat,
             };
             _waveOut = waveOut;
             var fileName = $"Music\\{name}.mp3";
@@ -98,7 +98,9 @@ namespace Zoom_CSharp_ChatBot.Music
             try
             {
                 waveOut.Init(mp3Reader);
+                waveOut.Volume = VolumeFloat;
                 waveOut.Play();
+                waveOut.Volume = VolumeFloat;
                 while (waveOut.PlaybackState == PlaybackState.Playing)
                 {
                     if (cancellationToken.IsCancellationRequested)
